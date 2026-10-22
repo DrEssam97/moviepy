@@ -32,8 +32,12 @@ from khatt.video import TextClip as KhattTextClip
 from moviepy import TextClip
 
 TEXT = "مرحبا بالعالم"
+HEBREW = "שלום עולם"
 FONT = str(font_path("amiri"))
-ARGS = dict(font=FONT, font_size=72, color="black", bg_color="white", margin=(24, 24), transparent=False)
+HEBREW_FONT = str(font_path("rubik"))
+STYLE = dict(font_size=72, color="black", bg_color="white", margin=(24, 24), transparent=False)
+ARGS = dict(font=FONT, **STYLE)
+HEBREW_ARGS = dict(font=HEBREW_FONT, **STYLE)
 
 
 def ink(clip):
@@ -65,9 +69,11 @@ def main(out: Path) -> None:
         "moviepy_recipe": TextClip(text=recipe, **ARGS),
         "khatt_plain": KhattTextClip(text=TEXT, **ARGS),
         "hb_recipe": KhattTextClip(text=recipe, **ARGS),
+        "hebrew_moviepy": TextClip(text=HEBREW, **HEBREW_ARGS),
+        "hebrew_khatt": KhattTextClip(text=HEBREW, **HEBREW_ARGS),
     }
     masks = {name: ink(clip) for name, clip in clips.items()}
-    reference = masks["khatt_plain"]
+    references = {name: masks["hebrew_khatt" if name.startswith("hebrew") else "khatt_plain"] for name in masks}
     report = {
         "platform": platform.platform(),
         "python": platform.python_version(),
@@ -76,12 +82,15 @@ def main(out: Path) -> None:
         "khatt": version("khatt"),
         "raqm": features.check("raqm"),
         "cases": {
-            name: {"ink_runs": ink_runs(mask), "iou_vs_khatt": similarity(mask, reference)}
+            name: {"ink_runs": ink_runs(mask), "iou_vs_khatt": similarity(mask, references[name])}
             for name, mask in masks.items()
         },
     }
 
     frames = [Image.fromarray(clips[name].get_frame(0)) for name in clips]
+    tag = "raqm" if report["raqm"] else "noraqm"
+    for name, frame in zip(clips, frames):
+        frame.save(out / f"{tag}_{name}.png")
     width = max(f.width for f in frames) + 260
     sheet = Image.new("RGB", (width, sum(f.height for f in frames)), "white")
     draw = ImageDraw.Draw(sheet)
