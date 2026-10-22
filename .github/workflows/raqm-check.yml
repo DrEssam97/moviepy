@@ -1,0 +1,30 @@
+name: TextClip Raqm check (fork only)
+
+on:
+  push:
+    branches: [ci/textclip-raqm-check]
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Install
+        run: pip install -e . pillow arabic-reshaper python-bidi "khatt==0.3.0"
+      - name: Fonts and Raqm before
+        run: |
+          dpkg -l | grep -i fribidi || echo "no fribidi package"
+          python -c "from PIL import features; print('raqm', features.check('raqm'))"
+      - name: Check without FriBiDi (if absent)
+        run: python tools/raqm-check/check_textclip.py out
+      - name: Install FriBiDi
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq libfribidi0
+      - name: Check with FriBiDi
+        run: python tools/raqm-check/check_textclip.py out
+      - uses: actions/upload-artifact@v4
+        with:
+          name: textclip-raqm
+          path: out
